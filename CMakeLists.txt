@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.3.0)
 
-message("Building ImFusion Robotic Vessel")
 project(3d_livesegm_compounding)
+message(STATUS "> Configuring ${PROJECT_NAME}")
+
 
 # Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
@@ -21,12 +22,24 @@ else()
     message(FATAL_ERROR "Could not find a ROS workspace root at ${ROS_WORKSPACE_ROOT}")
 endif()
 
-
 list(APPEND CMAKE_PREFIX_PATH ${ROS_WORKSPACE_ROOT})
 
-find_package(ImFusionLib COMPONENTS ImFusionRobotics ImFusionROS ImFusionUS ImFusionLiveUS CephasonicsPlugin REQUIRED)
+# Locate the ImFusion SDK.
+# List required modules/plugins in the COMPONENTS section (e.g. COMPONENTS ImFusionSeg ImFusionReg).
+set(ImFusionSDK FALSE)
+if (NOT TARGET ImFusionLib)
+    set(ImFusionSDK TRUE)
+endif ()
 
-find_package(ImFusionLib REQUIRED)
+#find_package(ImFusionLib REQUIRED)
+
+find_package(Threads REQUIRED)
+if (ImFusionSDK)
+    find_package(ImFusionLib COMPONENTS ImFusionRobotics ImFusionROS ImFusionUS ImFusionLiveUS REQUIRED)
+else ()
+    imfusion_require_modules("STREAM;RoboticsPlugin;ROSPlugin")
+endif ()
+
 find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
@@ -48,6 +61,7 @@ message(STATUS "This is OpenCV LIBS DIRS" ${OpenCV_LIBS})
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 catkin_package(
@@ -79,7 +93,10 @@ set(PLUGIN_SOURCES
 
 add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES} ${PLUGIN_FORMS} ${PLUGIN_HEADERS})
 
-target_include_directories(${PROJECT_NAME} PRIVATE
+target_include_directories(${PROJECT_NAME}
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/msgs>
+        PRIVATE
         include
         ${IMFUSION_SDK_INCLUDE}
         ${catkin_INCLUDE_DIRS}
@@ -107,11 +124,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # Define output target directories
 #imfusion_set_common_target_properties()
 
-set(OldPythonExecutable ${PYTHON_EXECUTABLE})
-set(PYTHON_EXECUTABLE /usr/bin/python2)
-include(cmake/Macros.cmake)
+#set(OldPythonExecutable ${PYTHON_EXECUTABLE})
+#set(PYTHON_EXECUTABLE /usr/bin/python2)
 imfusion_ros_add_catkin_dependencies(${PROJECT_NAME} COMPONENTS tf2_ros tf2_eigen cv_bridge)
-set(PYTHON_EXECUTABLE ${OldPythonExecutable})
+#set(PYTHON_EXECUTABLE ${OldPythonExecutable})
 
 if (UNIX)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
@@ -138,3 +154,12 @@ install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+
+if (NOT ImFusionSDK)
+    imfusion_set_common_target_properties(Plugin)
+    imfusion_common_install(Plugin)
+else ()
+    imfusion_set_common_target_properties()
+    imfusion_provide_ide_instructions()
+endif ()
