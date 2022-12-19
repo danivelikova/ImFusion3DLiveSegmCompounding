@@ -20,7 +20,6 @@
 #include <ImFusion/GL/IntensityMask.h>
 
 
-
 #define ON_NOTREADY -1
 #define ON_READYTOSTART 0
 #define ON_FINAL 1
@@ -29,7 +28,7 @@ namespace ImFusion {
     namespace LiveSegmCompounding {
 
         SweepRecAndComp::SweepRecAndComp(MainWindowBase *mainWindowBase)
-                : m_main(mainWindowBase ) {
+                : m_main(mainWindowBase) {
         }
 
         void SweepRecAndComp::startSweepRecording() {
@@ -58,10 +57,10 @@ namespace ImFusion {
             vec.push_back((usStream));
             vec.push_back((robStream));
 //            ImageStream * USStream = static_cast<ImageStream *>(m_main->dataModel()->get("Ultrasound Stream"));
-            // auto cepha_stream = m_main->dataModel()->get("Cephasonics Ultrasound");
-            // auto stream = static_cast<DataGroup *>(cepha_stream)->at(0);
-            // ImageStream* USStream = static_cast<ImageStream*>(stream);
-            // vec.push_back((USStream));
+            auto cepha_stream = m_main->dataModel()->get("Cephasonics Ultrasound");
+            auto stream = static_cast<DataGroup *>(cepha_stream)->at(0);
+            ImageStream *USStream = static_cast<ImageStream *>(stream);
+            vec.push_back((USStream));
 
             LOG_INFO("sweepRecorderAlgorithm starting");
             sweepRecorderAlgorithm = new USSweepRecorderAlgorithm(vec);
@@ -69,8 +68,9 @@ namespace ImFusion {
             Properties ctrlRecorder;
             ctrlRecorder.addSubProperties("Controller");
             m_main->addAlgorithm(sweepRecorderAlgorithm, &ctrlRecorder);
-            
-            USSweepRecorderController *controller = dynamic_cast<USSweepRecorderController *>(m_main->getAlgorithmController(sweepRecorderAlgorithm));
+
+            USSweepRecorderController *controller = dynamic_cast<USSweepRecorderController *>(m_main->getAlgorithmController(
+                    sweepRecorderAlgorithm));
             ringBuffer = controller->liveSweep();
             ringBuffer->setBufferSize(999999999);
 
@@ -95,20 +95,20 @@ namespace ImFusion {
 
             UltrasoundSweep *usSweep = static_cast<UltrasoundSweep *>(datalist.getItem(0));
 
-            // UltrasoundSweep *usSweepOriginal = static_cast<UltrasoundSweep *>(datalist.getItem(1));
+            UltrasoundSweep *usSweepOriginal = static_cast<UltrasoundSweep *>(datalist.getItem(1));
 
             // necessary???
 //               usSweep->tracking()->setTemporalOffset(146);
             Selection sel;
-            // Selection sel2;
+            Selection sel2;
             LOG_INFO("sweepRecorderAlgorithm stop ");
 
             sel.setAll(usSweep->size());
-            // sel.setAll(usSweepOriginal->size());
+            sel.setAll(usSweepOriginal->size());
             LOG_INFO("sweepRecorderAlgorithm stop ");
 
             usSweep->setSelection(sel);
-            // usSweepOriginal->setSelection(sel2);
+            usSweepOriginal->setSelection(sel2);
             LOG_INFO("sweepRecorderAlgorithm stop ");
 
 //            sel.setAll(ringBuffer->size());
@@ -124,7 +124,7 @@ namespace ImFusion {
             DataList datalist3;
             sc2->output(datalist3);
 
-            m_main->dataModel()->add(datalist3.getItem(0), "Volume ");
+            m_main->dataModel()->add(datalist3.getItem(0), "Volume");
             LOG_INFO("sweepRecorderAlgorithm stop ");
 
 //            m_main->dataModel()->add(usSweep, "Partial Sweep ");
@@ -132,22 +132,32 @@ namespace ImFusion {
             if (m_exportSweeps) {
                 LOG_INFO("m_exportSweeps ");
 
+                try {
+
                 auto sis = static_cast<SharedImageSet *>(datalist3.getItem(0));
-                //sis->get()->sync();
+                sis->get()->sync();
                 auto str = getDayAndTime();
                 BackgroundExporter *sweepExporter = new BackgroundExporter();
                 ImFusion::DataList data;
                 data.add(usSweep);
-                sweepExporter->saveBlocking(data, "/home/aorta-scan/dani/Aorta_scan_Live3D/results_sweeps/sweep_" + str + ".imf");
-                // BackgroundExporter *originalSweepExporter = new BackgroundExporter();
-                // ImFusion::DataList data2;
-                // data2.add(usSweepOriginal);
-                // originalSweepExporter->saveBlocking(data2, "/media/dani/Expansion/0_IFL/Aorta_scan_Live3D/results_sweeps/original_sweep_" + str + ".imf");
-                
-                // BackgroundExporter *volExporter = new BackgroundExporter();
-                //  ImFusion::DataList data3;
-                // data3.add(usSweepOriginal);
-                // volExporter->saveBlocking(data3, "/media/dani/Expansion/0_IFL/Aorta_scan_Live3D/results_sweeps/vol_" + str + ".imf");
+                sweepExporter->saveBlocking(data,
+                                            "/home/aorta-scan/dani/Aorta_scan_Live3D/results_sweeps/sweep_" + str +
+                                            ".imf");
+
+                BackgroundExporter *originalSweepExporter = new BackgroundExporter();
+                ImFusion::DataList data2;
+                data2.add(usSweepOriginal);
+                originalSweepExporter->saveBlocking(data2, "/home/aorta-scan/dani/Aorta_scan_Live3D/results_sweeps/original_sweep_" + str + ".imf");
+
+                BackgroundExporter *volumeExporter = new BackgroundExporter();
+
+                ImFusion::DataList data3;
+                data2.add(sis);
+                volumeExporter->saveBlocking(data3,
+                                              "/home/aorta-scan/dani/Aorta_scan_Live3D/results_sweeps/vol_" + str +
+                                              ".imf");
+
+                } catch (const std::exception &e) { std::cout << e.what() << std::endl; }
             }
 
             delete sc2;
